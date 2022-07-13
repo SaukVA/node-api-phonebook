@@ -1,1 +1,1 @@
-web: node ./app/gitindex.js
+web: node ./app/index.js
