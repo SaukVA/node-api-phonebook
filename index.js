@@ -1,62 +1,56 @@
+// Aplicación de las configuraciones de dotenv y la de mongo
+require('dotenv').config()
+require('./mongo')
+
+// Importación de dependencias
 const express = require('express')
 const cors = require('cors')
-const morgan = require('morgan')
 const app = express()
+const mongoose = require('mongoose')
 
-morgan.token('body', req => { return JSON.stringify(req.body) })
+// Inportación de los Modelo que se van a necesitar
+const Person = require('./models/Person')
 
-app.use(cors())
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
+// Uso de Express y Cors para que la API se a más legible
+// y facil de utilizar.
 app.use(express.json())
+app.use(cors())
 
-let phonebook = [
-  {
-    id: 1,
-    name: 'Arto Hellas',
-    number: '040-123456'
-  },
-  {
-    id: 2,
-    name: 'Ada Lovelace',
-    number: '39-44-5323523'
-  },
-  {
-    id: 3,
-    name: 'Dan Abramov',
-    number: '12-43-234345'
-  },
-  {
-    id: 4,
-    name: 'Mary Poppendick',
-    number: '39-23-6423122'
-  }
-]
-
+// =======================================
+// METODOS GET
+// =======================================
 app.get('/', (request, response) => {
-  response.json('<h1>PhoneBook-API</h1>')
+  response.send('<h1>PhoneBook-API</h1>')
 })
 
-app.get('/api/persons', (request, response) => {
-  response.json(phonebook)
+app.get('/api/persons', (request, response, next) => {
+  Person.find({})
+    .then(persons => {
+      response.json(persons)
+      mongoose.connection.close()
+    })
+    .catch(err => next(err))
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const persons = phonebook.filter(data => data.id === id)
-  response.json(persons)
+app.get('/api/persons/:id', (request, response, next) => {
+  const id = request.params.id
+  Person.findById(id)
+    .then(person => {
+      response.json(person)
+      mongoose.connection.close()
+    })
+    .catch(err => next(err))
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  phonebook = phonebook.filter(data => data.id !== id)
-  response.status(204).end()
-})
-
-app.post('/api/persons', (request, response) => {
+// =======================================
+// METODOS POST
+// =======================================
+app.post('/api/persons', (request, response, next) => {
   const person = request.body
-  const ids = phonebook.map(person => person.id)
-  const idMax = Math.max(...ids)
-  const personExist = phonebook.find(per => per.name === person.name)
+  const newPerson = new Person({
+    name: person.name,
+    number: person.number
+  })
 
   if (!person || !person.name || !person.number) {
     return response.status(400).json([{
@@ -64,35 +58,43 @@ app.post('/api/persons', (request, response) => {
     }])
   }
 
-  if (personExist) {
-    return response.status(400).json([{
-      error: 'name must be unique'
-    }])
-  }
-
-  const newPeson = {
-    id: idMax + 1,
-    name: person.name,
-    number: person.number
-  }
-
-  phonebook = [...phonebook, newPeson]
-
-  response.json(newPeson)
+  Person.find({ $or: [{ name: person.name }, { number: person.number }] })
+    .then(person => {
+      if (person.length !== 0) {
+        mongoose.connection.close()
+        return response.status(400).json([{ error: 'name must be unique' }])
+      }
+      newPerson.save()
+        .then(savePerson => {
+          response.json(savePerson)
+          mongoose.connection.close()
+        })
+        .catch(err => next(err))
+    })
+    .catch(err => next(err))
 })
 
-app.get('/info', (request, response) => {
-  response.send(
-    '<p>Phone book has info for' + phonebook.length + '</p>' +
-        '<p>' + new Date() + '</p>'
-  )
+// =======================================
+// METODOS DELETE
+// =======================================
+app.delete('/api/persons/:id', (request, response, next) => {
+  const id = request.params.id
+  Person.findByIdAndRemove(id)
+    .then(person => {
+      response.status(204).end()
+      mongoose.connection.close()
+    })
+    .catch(err => next(err))
 })
 
-app.use((reques, response) => {
+// Midelware para control de errores
+app.use((err, reques, response) => {
+  console.error(err)
   response.status(404).end()
 })
 
-const PORT = process.env.PORT || 3001
+// Apertura del puerto para la comunicación con la API
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
