@@ -27,7 +27,7 @@ app.get('/api/persons', (request, response, next) => {
   Person.find({})
     .then(persons => {
       response.json(persons)
-      mongoose.connection.close()
+      /* mongoose.connection.close() */
     })
     .catch(err => next(err))
 })
@@ -37,7 +37,7 @@ app.get('/api/persons/:id', (request, response, next) => {
   Person.findById(id)
     .then(person => {
       response.json(person)
-      mongoose.connection.close()
+      /* mongoose.connection.close() */
     })
     .catch(err => next(err))
 })
@@ -61,13 +61,13 @@ app.post('/api/persons', (request, response, next) => {
   Person.find({ $or: [{ name: person.name }, { number: person.number }] })
     .then(person => {
       if (person.length !== 0) {
-        mongoose.connection.close()
+        /* mongoose.connection.close() */
         return response.status(400).json([{ error: 'name must be unique' }])
       }
       newPerson.save()
         .then(savePerson => {
           response.json(savePerson)
-          mongoose.connection.close()
+          /* mongoose.connection.close() */
         })
         .catch(err => next(err))
     })
@@ -82,7 +82,7 @@ app.delete('/api/persons/:id', (request, response, next) => {
   Person.findByIdAndRemove(id)
     .then(person => {
       response.status(204).end()
-      mongoose.connection.close()
+      /* mongoose.connection.close() */
     })
     .catch(err => next(err))
 })
@@ -97,5 +97,4 @@ app.use((err, reques, response) => {
 const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
-  console.log(`Server running on port ${process.env.MONGO_DB_URI}`)
 })
